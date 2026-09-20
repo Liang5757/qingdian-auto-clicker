@@ -14,11 +14,10 @@ namespace Qingdian.AutoClicker.Tests
         [InlineData(int.MaxValue, 3600000)]
         public void CorruptIntervalIsClamped(int value, int expected)
         {
-            var settings = new Settings { Interval = value, Button = 99, X = int.MinValue, Limit = -1 };
+            var settings = new Settings { Interval = value, Button = 99, Limit = -1 };
             settings.Validate();
             Assert.Equal(expected, settings.Interval);
             Assert.Equal(2, settings.Button);
-            Assert.Equal(-100000, settings.X);
             Assert.Equal(0, settings.Limit);
         }
 
@@ -69,10 +68,34 @@ namespace Qingdian.AutoClicker.Tests
                 for (int i = 0; i < inputs.Length; i++)
                 {
                     Assert.Equal(0u, inputs[i].type);
+                    Assert.Equal(0, inputs[i].data.mouse.dx);
+                    Assert.Equal(0, inputs[i].data.mouse.dy);
+                    Assert.Equal(0u, inputs[i].data.mouse.flags & (0x0001u | 0x8000u)); // No MOVE or ABSOLUTE flags.
                     Assert.Equal(i % 2 == 0 ? down : up, inputs[i].data.mouse.flags);
                 }
             }
             Assert.Equal(IntPtr.Size == 8 ? 40 : 28, Marshal.SizeOf(typeof(Native.Input)));
+        }
+
+        [Fact]
+        public void LegacyFixedCoordinatesAreIgnoredAndRemovedOnSave()
+        {
+            WithDirectory(dir =>
+            {
+                string path = Path.Combine(dir, "settings.xml");
+                File.WriteAllText(path, "<Settings><Interval>500</Interval><FixedPosition>true</FixedPosition><X>1919</X><Y>1128</Y><Limit>3</Limit></Settings>");
+                string warning;
+                var store = new SettingsStore(path);
+                var settings = store.Load(out warning);
+                Assert.Null(warning);
+                Assert.Equal(500, settings.Interval);
+                Assert.Equal(3, settings.Limit);
+                Assert.True(store.TrySave(settings, out warning));
+                string saved = File.ReadAllText(path);
+                Assert.DoesNotContain("FixedPosition", saved);
+                Assert.DoesNotContain("<X>", saved);
+                Assert.DoesNotContain("<Y>", saved);
+            });
         }
 
         [Fact]
@@ -82,12 +105,12 @@ namespace Qingdian.AutoClicker.Tests
             {
                 var store = new SettingsStore(Path.Combine(dir, "settings.xml"));
                 string warning;
-                Assert.True(store.TrySave(new Settings { X = -100, DoubleClick = true }, out warning));
+                Assert.True(store.TrySave(new Settings { Interval = 150, DoubleClick = true }, out warning));
                 Assert.Null(warning);
-                Assert.Equal(-100, store.Load(out warning).X);
+                Assert.Equal(150, store.Load(out warning).Interval);
                 Assert.True(store.Load(out warning).DoubleClick);
-                Assert.True(store.TrySave(new Settings { X = 300 }, out warning));
-                Assert.Equal(300, store.Load(out warning).X);
+                Assert.True(store.TrySave(new Settings { Interval = 300 }, out warning));
+                Assert.Equal(300, store.Load(out warning).Interval);
                 Assert.Single(Directory.GetFiles(dir));
             });
         }
@@ -128,13 +151,13 @@ namespace Qingdian.AutoClicker.Tests
                 string path = Path.Combine(dir, "settings.xml");
                 var store = new SettingsStore(path);
                 string warning;
-                Assert.True(store.TrySave(new Settings { X = 17 }, out warning));
+                Assert.True(store.TrySave(new Settings { Interval = 170 }, out warning));
                 using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
-                    Assert.False(store.TrySave(new Settings { X = 99 }, out warning));
+                    Assert.False(store.TrySave(new Settings { Interval = 990 }, out warning));
                     Assert.NotNull(warning);
                 }
-                Assert.Equal(17, store.Load(out warning).X);
+                Assert.Equal(170, store.Load(out warning).Interval);
                 Assert.Single(Directory.GetFiles(dir));
             });
         }

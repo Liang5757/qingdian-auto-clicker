@@ -11,8 +11,8 @@ A small, open-source Windows auto clicker with a Chinese desktop UI. **F9 starts
 - Configurable interval from 20 ms to one hour.
 - Left, right, or middle button; single or double clicks.
 - A fixed number of rounds, or unlimited rounds. A double-click round contains two clicks.
-- Follow the pointer or click a fixed screen position, including negative coordinates.
-- Three-second coordinate picker; one-second delay before clicking starts.
+- Click at the current pointer location without moving the pointer.
+- One-second delay before clicking starts.
 - Local settings persistence; single instance; startup disabled if the stop hotkey is unavailable.
 
 ## Run
@@ -21,7 +21,7 @@ Download and extract a release ZIP, then run `Qingdian.AutoClicker.exe`. Require
 
 Settings live in `%LOCALAPPDATA%\WindowsAutoClicker\settings.xml`. Exit the app and delete that file to reset settings. Delete the extracted folder to uninstall; settings can be deleted separately.
 
-Since v1.0.1, a worker samples F10 state approximately every 10 ms and latches stop requests independently of `WM_HOTKEY`. The UI checks before each click, during startup delay, and while picking coordinates. Modifier keys do not prevent this fallback. Sampling can miss very short presses and remains subject to Windows desktop access restrictions; it is not a guarantee for secure desktops or intercepted input. The status text identifies which stop path fired.
+Since v1.0.1, a worker samples F10 state approximately every 10 ms and latches stop requests independently of `WM_HOTKEY`. The UI checks before each click and during startup delay. Modifier keys do not prevent this fallback. Sampling can miss very short presses and remains subject to Windows desktop access restrictions; it is not a guarantee for secure desktops or intercepted input. The status text identifies which stop path fired.
 
 ## Build and test
 
@@ -36,7 +36,7 @@ The solution uses SDK-style projects targeting .NET Framework 4.8. Locked NuGet 
 
 ## Limits
 
-Windows scheduling affects timing. Elevated targets may require matching privileges; some applications ignore synthetic input. Secure/locked desktops are unsupported. Mixed-DPI displays may require checking the picked position. Use only where automation is permitted.
+Windows scheduling affects timing. Elevated targets may require matching privileges; some applications ignore synthetic input. Secure/locked desktops are unsupported. Use only where automation is permitted.
 
 Automated tests cover logic, persistence, native layout, and message handling, not end-to-end input delivery on every desktop. Full manual Windows/DPI/privilege acceptance is still pending; see [testing](docs/TESTING.md).
 

@@ -5,9 +5,9 @@
 | 模块 | 职责 |
 | --- | --- |
 | `Program` | 单实例互斥、DPI 和应用入口 |
-| `MainForm` | 控件、全局快捷键、UI 定时器、取点及状态显示 |
+| `MainForm` | 控件、全局快捷键、UI 定时器及状态显示 |
 | `ClickSession` | 点击轮数、有限/无限模式、停止与重启行为 |
-| `Native` | RegisterHotKey、SendInput、SetCursorPos 的 Win32 封装 |
+| `Native` | RegisterHotKey、SendInput、GetAsyncKeyState 的 Win32 封装 |
 | `Settings` | 配置值与边界归一化 |
 | `SettingsStore` | 受限 XML 读取、原子保存与失败回退 |
 | `StopSignal` | 线程安全的 F10 停止请求；捕获后保持到显式重置 |
@@ -20,4 +20,4 @@ v1.0.1 添加 `System.Threading.Timer` 每约 10 ms 读取 GetAsyncKeyState 的�
 
 设置沿用初版 `%LOCALAPPDATA%/WindowsAutoClicker/settings.xml`。保存写入同目录唯一临时文件，再原子替换旧文件；失败时保留原文件，尽力清理临时文件。读取不允许 DTD，最多 64 Ki 字符。损坏配置不会在读取阶段被覆盖；用户启动或退出后会保存当前设置。
 
-当前采用系统 DPI 感知而非 PerMonitorV2。未来若调整 DPI 策略，必须同步验证虚拟屏幕坐标、取点、窗口缩放和跨显示器移动。
+当前采用系统 DPI 感知而非 PerMonitorV2。未来若调整 DPI 策略，必须同步验证窗口缩放和跨显示器移动。
