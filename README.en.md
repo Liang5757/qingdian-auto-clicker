@@ -21,7 +21,9 @@ Download and extract a release ZIP, then run `Qingdian.AutoClicker.exe`. Require
 
 Settings live in `%LOCALAPPDATA%\WindowsAutoClicker\settings.xml`. Exit the app and delete that file to reset settings. Delete the extracted folder to uninstall; settings can be deleted separately.
 
-Since v1.0.1, a worker samples F10 state approximately every 10 ms and latches stop requests independently of `WM_HOTKEY`. The UI checks before each click and during startup delay. Modifier keys do not prevent this fallback. Sampling can miss very short presses and remains subject to Windows desktop access restrictions; it is not a guarantee for secure desktops or intercepted input. The status text identifies which stop path fired.
+Since v1.0.3, a dedicated message thread captures F10 / Esc key-down events and polls key state every approximately 10 ms. Stop requests remain latched. All sends pass through a serialized stop gate. Desktop access restrictions and input interception still apply.
+
+Local diagnostics record settings, process/version, send counts and tagged input observations (approximately 1 MB maximum, no uploads). Open them from the UI. Untagged events do not identify the originating process or rule out forwarding by another program. The reported continuing right clicks after exit still require live diagnosis; this release does not establish their root cause.
 
 ## Build and test
 

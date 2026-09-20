@@ -16,8 +16,10 @@ namespace WindowsAutoClicker
 
         internal void Poll()
         {
-            if (isKeyDown()) Interlocked.Exchange(ref requested, 1);
+            if (isKeyDown()) Request();
         }
+
+        internal void Request() { Interlocked.Exchange(ref requested, 1); }
 
         internal bool Check()
         {

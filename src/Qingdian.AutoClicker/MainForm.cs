@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
-using System.Runtime.InteropServices;
+using System.IO;
 
 namespace WindowsAutoClicker
 {
@@ -20,14 +20,19 @@ namespace WindowsAutoClicker
         private readonly TableLayoutPanel options = new TableLayoutPanel();
         private readonly Timer timer = new Timer();
         private readonly Timer stopTimer = new Timer { Interval = 20 };
-        private readonly StopSignal stopSignal = new StopSignal(() => Native.GetAsyncKeyState((int)Keys.F10) < 0);
-        private readonly System.Threading.Timer stopPoller;
+        private readonly StopSignal stopSignal = new StopSignal(() => Native.GetAsyncKeyState((int)Keys.F10) < 0 || Native.GetAsyncKeyState((int)Keys.Escape) < 0);
+        private readonly InputMonitor inputMonitor;
+        private readonly ClickOutput output;
+        private readonly DiagnosticLog diagnosticLog = new DiagnosticLog();
+        private readonly Timer diagnosticTimer = new Timer { Interval = 2000 };
+        private readonly Label inputStatus = new Label { AutoSize = true, ForeColor = Color.DimGray, MaximumSize = new Size(540, 0) };
+        private long lastUnmarked, lastObserved;
+        private bool resourcesDisposed;
         private readonly Stopwatch elapsed = new Stopwatch();
         private readonly SettingsStore settingsStore = new SettingsStore();
         private bool running, f9Registered, f10Registered;
         private readonly ClickSession session = new ClickSession();
         private Settings active;
-        private Native.Input[] inputs;
 
         private static NumericUpDown Number(int min, int max, int value)
         {
@@ -36,21 +41,24 @@ namespace WindowsAutoClicker
 
         internal MainForm()
         {
-            Text = "轻点 · Windows 连点器 v1.0.2";
+            output = new ClickOutput(stopSignal, ClickOutput.SendNative, diagnosticLog.Write);
+            inputMonitor = new InputMonitor(stopSignal);
+            diagnosticLog.Write("application.started version=" + Application.ProductVersion + " pid=" + Process.GetCurrentProcess().Id + " marker=" + Native.InputMarker.ToUInt64().ToString("X") + " hookReady=" + inputMonitor.Ready + " keyboardError=" + inputMonitor.KeyboardError + " mouseError=" + inputMonitor.MouseError);
+            Text = "轻点 · Windows 连点器 v" + Application.ProductVersion;
             Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(600, 430);
+            ClientSize = new Size(600, 490);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(247, 249, 252);
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(24), ColumnCount = 1, RowCount = 8 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(24), ColumnCount = 1, RowCount = 10 };
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.Controls.Add(new Label { Text = "轻点 / AUTO CLICKER", Font = new Font(Font.FontFamily, 19, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 0, 0, 8) });
-            layout.Controls.Add(new Label { Text = "F9 全局开始 · F10 全局停止", AutoSize = true, ForeColor = Color.DimGray, Margin = new Padding(0, 0, 0, 18) });
+            layout.Controls.Add(new Label { Text = "F9 全局开始 · F10 / Esc 停止", AutoSize = true, ForeColor = Color.DimGray, Margin = new Padding(0, 0, 0, 18) });
             options.AutoSize = true;
             options.Dock = DockStyle.Top;
             options.ColumnCount = 2;
@@ -70,13 +78,22 @@ namespace WindowsAutoClicker
             start.BackColor = Color.FromArgb(39, 99, 215); start.ForeColor = Color.White; start.FlatStyle = FlatStyle.Flat;
             actions.Controls.Add(start); actions.Controls.Add(stop); layout.Controls.Add(actions);
             layout.Controls.Add(status); layout.Controls.Add(counter); layout.Controls.Add(configWarning);
+            layout.Controls.Add(inputStatus);
+            var logLink = new LinkLabel { Text = "查看本地诊断日志", AutoSize = true };
+            logLink.LinkClicked += delegate {
+                diagnosticLog.Write("diagnostics.opened");
+                try { if (File.Exists(diagnosticLog.Path)) Process.Start(new ProcessStartInfo(diagnosticLog.Path) { UseShellExecute = true }); }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException) { status.Text = "日志路径：" + diagnosticLog.Path; }
+            };
+            layout.Controls.Add(logLink);
             layout.Controls.Add(new Label { Text = "启动后预留 1 秒移开鼠标；始终点击鼠标当前位置。\n最小间隔 20 ms，实际速度受系统调度影响。", AutoSize = true, ForeColor = Color.DimGray, Margin = new Padding(0, 12, 0, 0) });
             Controls.Add(layout);
             start.Click += delegate { StartClicking(); };
             stop.Click += delegate { StopClicking("已停止"); };
             timer.Tick += delegate { TickClick(); };
             stopTimer.Tick += delegate { CheckEmergencyStop(); };
-            stopPoller = new System.Threading.Timer(delegate { stopSignal.Poll(); }, null, 0, 10);
+            diagnosticTimer.Tick += delegate { UpdateInputDiagnostics(); };
+            diagnosticTimer.Start();
             FormClosing += delegate { StopClicking("已停止"); SaveSettings(); };
             LoadSettings();
         }
@@ -95,6 +112,7 @@ namespace WindowsAutoClicker
             base.OnHandleCreated(e);
             f10Registered = Native.RegisterHotKey(Handle, 10, 0x4000, (uint)Keys.F10);
             f9Registered = Native.RegisterHotKey(Handle, 9, 0x4000, (uint)Keys.F9);
+            diagnosticLog.Write("hotkeys.registered f9=" + f9Registered + " f10=" + f10Registered);
             if (!f10Registered) { start.Enabled = false; status.Text = "F10 被占用，无法安全启动。关闭冲突程序后重开。"; }
             else if (!f9Registered) status.Text = "F9 被占用，请使用开始按钮；F10 可用。";
         }
@@ -123,11 +141,12 @@ namespace WindowsAutoClicker
         {
             if (running || !f10Registered) return;
             stopSignal.Reset();
-            if (stopSignal.Check()) { status.Text = "请先松开 F10，再开始。"; return; }
+            if (stopSignal.Check()) { status.Text = "请先松开 F10 / Esc，再开始。"; return; }
             active = ReadSettings();
             SaveSettings();
             if (stopSignal.Check()) { StopClicking("已取消启动 · F10"); return; }
-            inputs = Native.ClickInputs(active.Button, active.DoubleClick);
+            output.Start(active.Button, active.DoubleClick);
+            diagnosticLog.Write("run.started interval=" + active.Interval + " limit=" + active.Limit);
             session.Start(active.Limit); running = true; options.Enabled = false; start.Enabled = false; stop.Enabled = true;
             counter.Text = "已完成 0 轮"; status.Text = "1 秒后开始 · F10 随时停止";
             elapsed.Restart(); timer.Interval = 1000; timer.Start();
@@ -137,30 +156,46 @@ namespace WindowsAutoClicker
         {
             if (!running) return;
             if (CheckEmergencyStop()) return;
-            uint sent = Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.Input)));
-            if (sent != inputs.Length)
+            if (!output.TryClick())
             {
-                // Release the selected button after a partial insertion, without issuing another down event.
-                Native.SendInput(1, new Native.Input[] { inputs[1] }, Marshal.SizeOf(typeof(Native.Input)));
-                StopClicking("点击发送失败，请检查目标程序权限。"); return;
+                StopClicking(output.Failure ?? "已停止 · F10 / Esc 输入检测");
+                return;
             }
             session.RecordClick();
-            counter.Text = "已完成 " + session.Rounds.ToString("N0") + " 轮 · " + elapsed.Elapsed.TotalSeconds.ToString("0.0") + " 秒";
+            counter.Text = "已完成 " + output.Rounds.ToString("N0") + " 轮 · " + elapsed.Elapsed.TotalSeconds.ToString("0.0") + " 秒";
             status.Text = "正在连点 · F10 停止";
             if (!session.IsRunning) { StopClicking("已完成设定轮数"); return; }
             timer.Interval = active.Interval;
         }
         private void StopClicking(string message)
         {
+            stopSignal.Request();
+            output.Stop(message);
             timer.Stop(); stopTimer.Stop(); elapsed.Stop(); session.Stop(); running = false;
+            diagnosticLog.Write("run.stopped observedDown=" + inputMonitor.OwnDown + " observedUp=" + inputMonitor.OwnUp);
             options.Enabled = true; start.Enabled = f10Registered; stop.Enabled = false;
             status.Text = message;
         }
         private bool CheckEmergencyStop()
         {
             if (!stopSignal.Check()) return false;
-            StopClicking("已停止 · F10 按键检测");
+            StopClicking("已停止 · F10 / Esc 输入检测");
             return true;
+        }
+        private void UpdateInputDiagnostics()
+        {
+            long unmarked = inputMonitor.UnmarkedLeft + inputMonitor.UnmarkedRight + inputMonitor.UnmarkedMiddle;
+            long observed = inputMonitor.OwnDown + inputMonitor.OwnUp;
+            long delta = unmarked - lastUnmarked;
+            inputStatus.Text = !inputMonitor.Ready || inputMonitor.MouseError != 0
+                ? "输入观测不可用；请保留日志排查。"
+                : (!running && delta > 0
+                    ? "本程序已停止；近 2 秒观测到 " + delta + " 次未带本程序标记的模拟点击。"
+                    : "输入观测：本程序标记按下 " + inputMonitor.OwnDown + " / 松开 " + inputMonitor.OwnUp);
+            if (unmarked != lastUnmarked || observed != lastObserved)
+                diagnosticLog.Write("input.observed running=" + running + " ownDown=" + inputMonitor.OwnDown + " ownUp=" + inputMonitor.OwnUp + " unmarkedLeft=" + inputMonitor.UnmarkedLeft + " unmarkedRight=" + inputMonitor.UnmarkedRight + " unmarkedMiddle=" + inputMonitor.UnmarkedMiddle);
+            lastUnmarked = unmarked;
+            lastObserved = observed;
         }
         private void LoadSettings()
         {
@@ -179,10 +214,17 @@ namespace WindowsAutoClicker
         }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { timer.Stop(); stopTimer.Stop(); stopPoller.Dispose(); }
+            if (disposing && !resourcesDisposed)
+            {
+                resourcesDisposed = true;
+                stopSignal.Request();
+                output.Stop("dispose");
+                timer.Stop(); stopTimer.Stop(); diagnosticTimer.Stop();
+                inputMonitor.Dispose();
+                diagnosticLog.Write("application.exiting");
+            }
             base.Dispose(disposing);
-            if (disposing) { timer.Dispose(); stopTimer.Dispose(); }
+            if (disposing) { timer.Dispose(); stopTimer.Dispose(); diagnosticTimer.Dispose(); }
         }
     }
-
 }
