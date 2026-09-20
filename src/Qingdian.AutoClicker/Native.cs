@@ -28,6 +28,7 @@ namespace WindowsAutoClicker
         [DllImport("user32.dll", SetLastError = true)] internal static extern uint SendInput(uint count, Input[] inputs, int size);
         [DllImport("user32.dll", SetLastError = true)] internal static extern bool SetCursorPos(int x, int y);
         [DllImport("user32.dll")] internal static extern bool SetProcessDPIAware();
+        [DllImport("user32.dll")] internal static extern short GetAsyncKeyState(int key);
 
         internal static Input[] ClickInputs(int button, bool doubleClick)
         {

@@ -24,6 +24,9 @@ namespace WindowsAutoClicker
         private readonly TableLayoutPanel options = new TableLayoutPanel();
         private readonly Timer timer = new Timer();
         private readonly Timer pickTimer = new Timer { Interval = 100 };
+        private readonly Timer stopTimer = new Timer { Interval = 20 };
+        private readonly StopSignal stopSignal = new StopSignal(() => Native.GetAsyncKeyState((int)Keys.F10) < 0);
+        private readonly System.Threading.Timer stopPoller;
         private readonly Stopwatch elapsed = new Stopwatch();
         private readonly Stopwatch pickElapsed = new Stopwatch();
         private readonly SettingsStore settingsStore = new SettingsStore();
@@ -39,7 +42,7 @@ namespace WindowsAutoClicker
 
         internal MainForm()
         {
-            Text = "轻点 · Windows 连点器";
+            Text = "轻点 · Windows 连点器 v1.0.1";
             Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -88,6 +91,8 @@ namespace WindowsAutoClicker
             pick.Click += delegate { BeginPick(); };
             timer.Tick += delegate { TickClick(); };
             pickTimer.Tick += delegate { TickPick(); };
+            stopTimer.Tick += delegate { CheckEmergencyStop(); };
+            stopPoller = new System.Threading.Timer(delegate { stopSignal.Poll(); }, null, 0, 10);
             FormClosing += delegate { StopClicking("已停止"); SaveSettings(); };
             LoadSettings(); UpdateCoordinates();
         }
@@ -121,7 +126,7 @@ namespace WindowsAutoClicker
         {
             if (m.Msg == 0x0312)
             {
-                if (m.WParam.ToInt32() == 10) StopClicking("已停止");
+                if (m.WParam.ToInt32() == 10) StopClicking("已停止 · F10 热键");
                 if (m.WParam.ToInt32() == 9) StartClicking();
             }
             base.WndProc(ref m);
@@ -134,16 +139,20 @@ namespace WindowsAutoClicker
         private void StartClicking()
         {
             if (running || pickTimer.Enabled || !f10Registered) return;
+            stopSignal.Reset();
+            if (stopSignal.Check()) { status.Text = "请先松开 F10，再开始。"; return; }
             active = ReadSettings();
             if (active.FixedPosition && !OnScreen(new Point(active.X, active.Y)))
             {
                 status.Text = "坐标不在当前屏幕内，请重新取点。"; return;
             }
             SaveSettings();
+            if (stopSignal.Check()) { StopClicking("已取消启动 · F10"); return; }
             inputs = Native.ClickInputs(active.Button, active.DoubleClick);
             session.Start(active.Limit); running = true; options.Enabled = false; start.Enabled = false; stop.Enabled = true;
             counter.Text = "已完成 0 轮"; status.Text = "1 秒后开始 · F10 随时停止";
             elapsed.Restart(); timer.Interval = 1000; timer.Start();
+            stopTimer.Start();
         }
         private static bool OnScreen(Point point)
         {
@@ -153,8 +162,10 @@ namespace WindowsAutoClicker
         private void TickClick()
         {
             if (!running) return;
+            if (CheckEmergencyStop()) return;
             if (active.FixedPosition && (!OnScreen(new Point(active.X, active.Y)) || !Native.SetCursorPos(active.X, active.Y)))
             { StopClicking("坐标不可用，已停止"); return; }
+            if (CheckEmergencyStop()) return;
             uint sent = Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.Input)));
             if (sent != inputs.Length)
             {
@@ -170,18 +181,28 @@ namespace WindowsAutoClicker
         }
         private void StopClicking(string message)
         {
-            timer.Stop(); pickTimer.Stop(); elapsed.Stop(); session.Stop(); running = false;
+            timer.Stop(); pickTimer.Stop(); stopTimer.Stop(); elapsed.Stop(); session.Stop(); running = false;
             options.Enabled = true; start.Enabled = f10Registered; stop.Enabled = false;
             pick.Text = "3 秒后取点"; status.Text = message;
         }
         private void BeginPick()
         {
+            stopSignal.Reset();
+            if (stopSignal.Check()) { status.Text = "请先松开 F10，再取点。"; return; }
             options.Enabled = false; start.Enabled = false; stop.Enabled = true;
             status.Text = "请把鼠标移到目标位置 · F10 取消";
             pickElapsed.Restart(); pickTimer.Start();
+            stopTimer.Start();
+        }
+        private bool CheckEmergencyStop()
+        {
+            if (!stopSignal.Check()) return false;
+            StopClicking("已停止 · F10 按键检测");
+            return true;
         }
         private void TickPick()
         {
+            if (CheckEmergencyStop()) return;
             pick.Text = Math.Max(0, 3 - pickElapsed.Elapsed.TotalSeconds).ToString("0.0") + " 秒后取点";
             if (pickElapsed.ElapsedMilliseconds < 3000) return;
             Point point = Cursor.Position;
@@ -207,9 +228,9 @@ namespace WindowsAutoClicker
         }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { timer.Stop(); pickTimer.Stop(); }
+            if (disposing) { timer.Stop(); pickTimer.Stop(); stopTimer.Stop(); stopPoller.Dispose(); }
             base.Dispose(disposing);
-            if (disposing) { timer.Dispose(); pickTimer.Dispose(); }
+            if (disposing) { timer.Dispose(); pickTimer.Dispose(); stopTimer.Dispose(); }
         }
     }
 
