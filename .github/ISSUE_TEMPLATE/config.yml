@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 安全漏洞 / Security vulnerability
+    url: https://github.com/Liang5757/qingdian-auto-clicker/security/advisories/new
+    about: 请私密报告漏洞，不要公开敏感信息。

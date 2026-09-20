@@ -1,0 +1,23 @@
+name: 问题报告 / Bug report
+description: 报告可复现的问题
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 版本与环境
+      description: 应用版本、Windows 版本、显示缩放比例
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 包含设置值、预期行为与实际行为，请勿上传敏感内容。
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 补充信息
+      description: 错误提示、截图、是否涉及管理员权限或多显示器。

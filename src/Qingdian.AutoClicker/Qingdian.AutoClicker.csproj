@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Qingdian.AutoClicker</AssemblyName>
+    <RootNamespace>WindowsAutoClicker</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>轻点 · Windows 连点器</Product>
+    <Description>A lightweight Windows auto clicker with global F9/F10 hotkeys.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Qingdian.AutoClicker.Tests" />
+  </ItemGroup>
+</Project>
