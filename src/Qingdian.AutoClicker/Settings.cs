@@ -8,6 +8,7 @@ namespace WindowsAutoClicker
         public int Button = 0;
         public bool DoubleClick = false;
         public int Limit = 0;
+        public bool StartHidden = false;
         public void Validate()
         {
             Interval = Math.Max(20, Math.Min(3600000, Interval));

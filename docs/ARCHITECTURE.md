@@ -25,3 +25,9 @@ v1.0.3 的 `InputMonitor` 在独立消息线程上安装只读低级键盘、鼠
 设置沿用初版 `%LOCALAPPDATA%/WindowsAutoClicker/settings.xml`。保存写入同目录唯一临时文件，再原子替换旧文件；失败时保留原文件，尽力清理临时文件。读取不允许 DTD，最多 64 Ki 字符。损坏配置不会在读取阶段被覆盖；用户启动或退出后会保存当前设置。
 
 当前采用系统 DPI 感知而非 PerMonitorV2。未来若调整 DPI 策略，必须同步验证窗口缩放和跨显示器移动。
+
+## 界面与托盘（v1.1.0）
+
+MainForm.Design 负责浅色布局与分段选择；MainForm.Tray 管理 NotifyIcon 和窗口生命周期。Hide 保留 HWND 和全局热键注册，UserClosing 默认取消并隐藏；明确退出、关机和系统退出路径仍停止输出并释放资源。开始菜单与按钮共同遵守 F10 可用性检查。托盘图标颜色反映运行状态。
+
+StartupRegistration 只在用户切换复选框时更改 HKCU Run 项，路径整体加引号；读取配置和打开窗口不写注册表。StartHidden 保存在 XML 并兼容旧配置，默认 false。

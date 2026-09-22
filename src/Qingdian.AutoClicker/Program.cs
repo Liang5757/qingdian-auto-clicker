@@ -14,7 +14,7 @@ namespace WindowsAutoClicker
             {
                 if (!created)
                 {
-                    MessageBox.Show("轻点已经在运行，请查看任务栏。", "轻点");
+                    MessageBox.Show("轻点已经在运行，请查看系统托盘（任务栏右侧隐藏图标）。", "轻点");
                     return;
                 }
                 Native.SetProcessDPIAware();

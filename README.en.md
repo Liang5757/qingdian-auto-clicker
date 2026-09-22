@@ -13,13 +13,16 @@ A small, open-source Windows auto clicker with a Chinese desktop UI. **F9 starts
 - A fixed number of rounds, or unlimited rounds. A double-click round contains two clicks.
 - Click at the current pointer location without moving the pointer.
 - One-second delay before clicking starts.
-- Local settings persistence; single instance; startup disabled if the stop hotkey is unavailable.
+- Modern light UI with segmented choices and automatic settings persistence.
+- Closing/minimizing hides to the system tray without stopping. Tray actions restore, start, stop, and exit; exit stops output.
+- Optional hidden startup and per-user Windows login startup, both off by default. Launch never starts clicking automatically.
+- Single instance; clicking disabled if the stop hotkey is unavailable.
 
 ## Run
 
 Download and extract a release ZIP, then run `Qingdian.AutoClicker.exe`. Requires Windows 10/11 and .NET Framework 4.8 or newer 4.x. The development SDK is not required. Releases are currently unsigned.
 
-Settings live in `%LOCALAPPDATA%\WindowsAutoClicker\settings.xml`. Exit the app and delete that file to reset settings. Delete the extracted folder to uninstall; settings can be deleted separately.
+Settings live in `%LOCALAPPDATA%\WindowsAutoClicker\settings.xml`. Exit the app and delete that file to reset settings. Disable login startup before uninstalling, exit via the tray, then delete the extracted folder; settings can be deleted separately. Login startup stores the quoted executable path in the current user Run registry key, only when enabled. Re-enable after moving the EXE. Tray residency still clicks the current pointer location; it does not send background clicks to minimized target windows.
 
 Since v1.0.3, a dedicated message thread captures F10 / Esc key-down events and polls key state every approximately 10 ms. Stop requests remain latched. All sends pass through a serialized stop gate. Desktop access restrictions and input interception still apply.
 
