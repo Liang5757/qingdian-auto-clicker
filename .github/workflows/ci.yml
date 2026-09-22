@@ -53,9 +53,14 @@ jobs:
         run: |
           mkdir -p artifacts
           bash scripts/package-macos.sh
+      - name: Render UI without input injection
+        run: |
+          unzip -q artifacts/*-macos-universal.zip -d artifacts/macos-preview
+          artifacts/macos-preview/轻点.app/Contents/MacOS/Qingdian --render-preview artifacts/macos-ui.png
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: qingdian-macos-universal
           path: |
             artifacts/*-macos-universal.zip
             artifacts/*-macos-universal.zip.sha256
+            artifacts/macos-ui.png

@@ -70,9 +70,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 }
 
+@MainActor
 @main enum QingdianEntry {
+    // CI-only rendering path: never installs hotkeys, starts timers or sends mouse input.
+    static func renderPreview(to url: URL) throws {
+        let model = AppModel(previewOnly: true)
+        let view = NSHostingView(rootView: ContentView(model: model))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 740), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = view; window.orderFront(nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        view.layoutSubtreeIfNeeded()
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw CocoaError(.fileWriteUnknown) }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else { throw CocoaError(.fileWriteUnknown) }
+        try png.write(to: url); window.orderOut(nil)
+    }
     static func main() {
         let app = NSApplication.shared
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render-preview" {
+            do { try renderPreview(to: URL(fileURLWithPath: CommandLine.arguments[2])) }
+            catch { fputs("Preview failed: \(error)\n", stderr); exit(1) }
+            return
+        }
         let delegate = AppDelegate()
         app.delegate = delegate; app.setActivationPolicy(.regular)
         withExtendedLifetime(delegate) { app.run() }

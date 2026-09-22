@@ -38,6 +38,9 @@ final class Hotkeys {
     private(set) var canStart = false
     var onStart: () -> Void = {}
     var onStop: () -> Void = {}
+    var stopHeld: Bool {
+        CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_F10)) || CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_Escape))
+    }
     func install() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let result = InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
@@ -46,6 +49,7 @@ final class Hotkeys {
             let result = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
                                            MemoryLayout<EventHotKeyID>.size, nil, &id)
             guard result == noErr else { return result }
+            guard id.signature == 0x5144494E else { return OSStatus(eventNotHandledErr) }
             let owner = Unmanaged<Hotkeys>.fromOpaque(context).takeUnretainedValue()
             if id.id == 10 { owner.onStop() }
             if id.id == 9 { owner.onStart() }

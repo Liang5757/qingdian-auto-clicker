@@ -55,6 +55,12 @@ final class ClickEngineTests: XCTestCase {
         XCTAssertThrowsError(try file.load())
         XCTAssertEqual(try String(contentsOf: file.url), "broken")
     }
+    func testOversizedSettingsRejected() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: path) }
+        try Data(repeating: 32, count: 65_537).write(to: path)
+        XCTAssertThrowsError(try SettingsFile(url: path).load())
+    }
     func testAllButtonsAndDoubleClickReachSender() {
         for button in 0...2 {
             for double in [false, true] {

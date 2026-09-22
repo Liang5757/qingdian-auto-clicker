@@ -23,9 +23,10 @@ final class AppModel: ObservableObject {
     private var clickTimer: Timer?
     private var permissionTimer: Timer?
     private var workspaceObservers: [NSObjectProtocol] = []
-    init() {
+    init(previewOnly: Bool = false) {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Qingdian", isDirectory: true)
         store = SettingsFile(url: dir.appendingPathComponent("settings.json")); log = LocalLog(directory: dir)
+        if previewOnly { permission = true; canStop = true; return }
         do { settings = try store.load() } catch { notice = "配置读取失败，使用默认值；修改设置后将重新保存。" }
     }
     func launch() {
@@ -68,6 +69,7 @@ final class AppModel: ObservableObject {
         guard !running else { return }
         guard keys.canStop else { status = "F10 不可用，禁止启动"; return }
         guard AXIsProcessTrusted() else { status = "请先授权辅助功能权限"; permission = false; return }
+        guard !keys.stopHeld else { status = "请先松开 F10 / Esc"; return }
         settings = settings.normalized
         save()
         let token = engine.start(settings)
@@ -76,6 +78,7 @@ final class AppModel: ObservableObject {
         let interval = Double(settings.interval) / 1000
         let timer = Timer(fire: Date().addingTimeInterval(1), interval: interval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
+            if self.keys.stopHeld { self.stop("已停止 · 按键状态检测"); return }
             guard self.engine.tick(generation: token) else {
                 if self.engine.failed { self.stop("点击发送失败，已停止") }
                 return
