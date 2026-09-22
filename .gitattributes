@@ -4,3 +4,6 @@
 *.yml text eol=lf
 *.ps1 text eol=crlf
 *.png binary
+
+*.swift text eol=lf
+*.sh text eol=lf

@@ -9,3 +9,6 @@ artifacts/
 *.log
 *.tmp
 .DS_Store
+
+macos/.build/
+macos/.swiftpm/
