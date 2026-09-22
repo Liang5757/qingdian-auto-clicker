@@ -1,6 +1,6 @@
 # Qingdian Auto Clicker · 轻点
 
-A small, open-source Windows auto clicker with a Chinese desktop UI. **F9 starts; F10 stops**, globally. No network access, telemetry, or third-party runtime packages.
+A small, open-source Windows and macOS auto clicker with a Chinese desktop UI. **F9 starts; F10 stops**, globally. No network access, telemetry, or third-party runtime packages.
 
 [中文](README.md) · [Downloads](https://github.com/Liang5757/qingdian-auto-clicker/releases) · [Contributing](CONTRIBUTING.md)
 
@@ -18,7 +18,15 @@ A small, open-source Windows auto clicker with a Chinese desktop UI. **F9 starts
 - Optional hidden startup and per-user Windows login startup, both off by default. Launch never starts clicking automatically.
 - Single instance; clicking disabled if the stop hotkey is unavailable.
 
-## Run
+## macOS
+
+Native SwiftUI / AppKit app for macOS 13+, with one universal ZIP for Apple Silicon and Intel. Move `轻点.app` into Applications and grant Accessibility permission from the app's permission guide. F9 starts, F10 / Esc stops (Fn may be required on media-key keyboards). Missing permission or unavailable F10 blocks starting. Closing/minimizing keeps the app in the menu bar; use its menu to quit. Optional login startup uses SMAppService and never automatically starts clicking.
+
+The Mac download is ad-hoc signed, **not Developer ID signed or notarized**. Gatekeeper may block first launch; use the system's approved opening flow after verifying the source, or build from source. Do not disable system protections. See [macOS documentation](macos/README.md).
+
+Windows C# and macOS Swift implementations share a product contract, repository and release version, not a common runtime implementation. Linux and background injection into minimized target windows are not supported. Build macOS with `cd macos && swift test -c release`; package from the repository root with `bash scripts/package-macos.sh`.
+
+## Windows run
 
 Download and extract a release ZIP, then run `Qingdian.AutoClicker.exe`. Requires Windows 10/11 and .NET Framework 4.8 or newer 4.x. The development SDK is not required. Releases are currently unsigned.
 

@@ -5,37 +5,73 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag, e.g. v1.0.0
+        description: Existing version tag, e.g. v1.2.0
         required: true
         type: string
 permissions:
   contents: read
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
     timeout-minutes: 20
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ inputs.tag || github.ref }}
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: '8.0.x'
-      - name: Build and package
+      - name: Build Windows package
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)$') { throw 'Invalid release tag.' }
           ./scripts/package.ps1 -Version $Matches[1]
-      - name: Publish release
-        shell: pwsh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-windows
+          path: |
+            artifacts/*-windows.zip
+            artifacts/*-windows.zip.sha256
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Build macOS universal package
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          VERSION="$(awk -F '[<>]' '/<Version>/{print $3; exit}' Directory.Build.props)"
+          [[ "$RELEASE_TAG" == "v$VERSION" ]] || exit 1
+          bash scripts/package-macos.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-macos
+          path: |
+            artifacts/*-macos-universal.zip
+            artifacts/*-macos-universal.zip.sha256
+  publish:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Publish both platforms together
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          $assets = Get-ChildItem artifacts -File | Where-Object { $_.Name -match '\.(zip|sha256)$' } | ForEach-Object FullName
-          gh release create $env:RELEASE_TAG @assets --verify-tag --title "轻点 $env:RELEASE_TAG" --notes-file CHANGELOG.md
-          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          gh run download "$GITHUB_RUN_ID" --pattern 'release-*' --dir artifacts
+          mapfile -t assets < <(find artifacts -type f \( -name '*.zip' -o -name '*.sha256' \))
+          [[ "${#assets[@]}" == 4 ]] || exit 1
+          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --title "轻点 $RELEASE_TAG · Windows + macOS" --notes-file CHANGELOG.md

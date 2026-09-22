@@ -44,7 +44,7 @@ final class Hotkeys {
             guard let event = event, let context = context else { return OSStatus(eventNotHandledErr) }
             var id = EventHotKeyID()
             let result = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
-                                           UInt32(MemoryLayout<EventHotKeyID>.size), nil, &id)
+                                           MemoryLayout<EventHotKeyID>.size, nil, &id)
             guard result == noErr else { return result }
             let owner = Unmanaged<Hotkeys>.fromOpaque(context).takeUnretainedValue()
             if id.id == 10 { owner.onStop() }

@@ -57,7 +57,9 @@ public final class SettingsFile {
     public init(url: URL) { self.url = url }
     public func load() throws -> ClickSettings {
         guard FileManager.default.fileExists(atPath: url.path) else { return ClickSettings() }
-        let data = try Data(contentsOf: url)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: 65_537) ?? Data()
         guard data.count <= 65_536 else { throw CocoaError(.fileReadTooLarge) }
         return try JSONDecoder().decode(ClickSettings.self, from: data)
     }

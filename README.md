@@ -1,9 +1,9 @@
 # 轻点 · Qingdian Auto Clicker
 
-[![Windows CI](https://github.com/Liang5757/qingdian-auto-clicker/actions/workflows/ci.yml/badge.svg)](https://github.com/Liang5757/qingdian-auto-clicker/actions/workflows/ci.yml)
+[![Cross-platform CI](https://github.com/Liang5757/qingdian-auto-clicker/actions/workflows/ci.yml/badge.svg)](https://github.com/Liang5757/qingdian-auto-clicker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-轻量、开源的 Windows 桌面连点器：**F9 开始，F10 停止**。中文界面，无网络请求、无遥测，无第三方运行时依赖包。
+轻量、开源的 Windows / macOS 桌面连点器：**F9 开始，F10 停止**。中文界面，无网络请求、无遥测，无第三方运行时依赖包。
 
 [English](README.en.md) · [下载发行版](https://github.com/Liang5757/qingdian-auto-clicker/releases/latest) · [报告问题](https://github.com/Liang5757/qingdian-auto-clicker/issues/new/choose)
 
@@ -22,7 +22,22 @@
 | 后台驻留 | 关闭 / 最小化窗口隐藏到托盘，快捷键继续有效 |
 | 启动选项 | 启动时隐藏、开机启动，默认均关闭 |
 
-## 下载与使用
+## 平台支持
+
+| 平台 | 界面与驻留 | 系统要求 | 安装包 |
+| --- | --- | --- | --- |
+| Windows | WinForms / 系统托盘 | Windows 10/11 + .NET Framework 4.8 | `*-windows.zip` |
+| macOS | SwiftUI / 菜单栏 | macOS 13+，Intel / Apple Silicon | `*-macos-universal.zip` |
+
+两端提供相同的核心配置、F9 开始、F10 / Esc 停止、后台驻留和可选登录启动。同一仓库与发布版本，两套原生实现分别维护；目前不支持 Linux，也不提供配置云同步或最小化目标窗口后台点击。
+
+### macOS 下载与使用
+
+解压 Mac 通用包，将 `轻点.app` 移到“应用程序”，打开后按界面指引授予辅助功能权限。Mac 顶排快捷键可能需要同时按 Fn / 🌐。未授权或 F10 注册失败时禁止连点。关闭窗口后继续驻留菜单栏，从菜单栏退出才停止并结束程序。
+
+当前 Mac 包只有 ad-hoc 签名，未做 Developer ID 签名和 Apple 公证，首次打开可能被系统拦截。安装、授权、源码构建和验收说明见 [macOS 文档](macos/README.md)。
+
+## Windows 下载与使用
 
 1. 从 [Releases](https://github.com/Liang5757/qingdian-auto-clicker/releases) 下载 `qingdian-auto-clicker-<版本>-windows.zip` 并解压。
 2. 双击 `Qingdian.AutoClicker.exe`，设置点击方式和间隔。
@@ -55,6 +70,9 @@ v1.0.3 使用独立消息线程监听 F10 / Esc 按下事件，并每约 10 ms �
 
 ## 开发
 
+Mac 开发要求 Xcode / Swift 5.9+；运行 `cd macos && swift test -c release`，在仓库根目录运行 `bash scripts/package-macos.sh` 打通用包。CI 分别构建 Windows 与 macOS，发布流程等待两端包均成功后再发布。
+
+
 要求 Windows、Git、.NET SDK 8.0.200 或更新的 8.0 SDK。SDK 版本范围由 `global.json` 固定；构建所需的 .NET Framework 引用程序集通过 NuGet 自动还原。
 
 ```powershell
@@ -76,11 +94,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
 ## 项目结构
 
 ```text
+macos/                          macOS 原生应用、Swift 核心与测试
 src/Qingdian.AutoClicker/         WinForms 界面、原生输入、配置、会话计数
 tests/Qingdian.AutoClicker.Tests/ xUnit 回归测试（不向桌面注入点击）
 scripts/                        构建、测试、打包入口
 docs/                           架构、测试、发布说明
-.github/                        Windows CI、标签发布、协作模板
+.github/                        Cross-platform CI、标签发布、协作模板
 ```
 
 欢迎提交 Issue 和 Pull Request。请先阅读 [贡献指南](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md) 与 [安全政策](SECURITY.md)。

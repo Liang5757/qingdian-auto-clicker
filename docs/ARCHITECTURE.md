@@ -31,3 +31,9 @@ v1.0.3 的 `InputMonitor` 在独立消息线程上安装只读低级键盘、鼠
 MainForm.Design 负责浅色布局与分段选择；MainForm.Tray 管理 NotifyIcon 和窗口生命周期。Hide 保留 HWND 和全局热键注册，UserClosing 默认取消并隐藏；明确退出、关机和系统退出路径仍停止输出并释放资源。开始菜单与按钮共同遵守 F10 可用性检查。托盘图标颜色反映运行状态。
 
 StartupRegistration 只在用户切换复选框时更改 HKCU Run 项，路径整体加引号；读取配置和打开窗口不写注册表。StartHidden 保存在 XML 并兼容旧配置，默认 false。
+
+## 双平台结构（v1.2.0）
+
+Windows 保持 C# / WinForms；macOS 使用 SwiftUI / AppKit。不是跨平台 UI 框架迁移，也没有共享运行时业务代码。两端通过相同的配置边界、启停契约和独立回归测试保持行为一致。
+
+Mac 的 QingdianCore 接受发送器闭包，实际 CGEvent 只位于应用目标。计时器、菜单和热键回调在主线程串行执行；每次启动 / 停止递增会话代次，过期回调不能在下一次运行发送。CGEvent.post 无目标接收回执。菜单栏隐藏保留进程及热键，退出和休眠通知停止会话。权限检查每秒刷新且每轮发送前再检查。使用系统 SMAppService 登录项 API，不写 LaunchAgent。
